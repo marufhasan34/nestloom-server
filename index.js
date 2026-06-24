@@ -34,6 +34,19 @@ async function run() {
     const database = client.db('nestloom_db');
     const propertyCollection = database.collection('property')
 
+    app.get('/api/property', async(req,res) => {
+      const query = {}
+      if(req.query.myPropertyId){
+        query.myPropertyId = req.query.myPropertyId
+      }
+      if(req.query.status){
+        query.status = req.query.status
+      }
+      const cursor = propertyCollection.find(query)
+      const result = await cursor.toArray()
+      res.send(result)
+    })
+
     app.post('/api/property', async (req,res) => {
       const property = req.body;
       const result = await propertyCollection.insertOne(property);

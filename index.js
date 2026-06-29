@@ -7,6 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { jwtVerify, createRemoteJWKSet } = require("jose-cjs");
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
@@ -22,6 +23,42 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`))
+
+const verifyToken = async (req,res,next) => {
+  const authHeader = req.headers.authorization;
+
+
+if(!authHeader || !authHeader.startsWith('Bearer')) {
+  return res.status(401).json({msg: 'unauthorized'})
+}
+
+const token = authHeader.split(' ')[1]
+
+if(!token){
+  return res.status(401).json({msg: 'unauthorized'})
+}
+
+try {
+  const {payload} = await jwtVerify(token,JWKS)
+  req.user = payload
+
+  next()
+}catch(error){
+   console.log(error)
+   return res.status(401).json({msg: 'unauthorized'})
+}
+
+}
+
+const ownerVerify = async (req,res,next) => {
+  const user = req.user;
+  if(user.role !=='owner' || user.plan != 'pro'){
+    return res.status(403).json({msg: 'Forbidden'})
+  }
+  next()
+}
 
 async function run() {
   try {
@@ -71,7 +108,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/api/property", async (req, res) => {
+    app.post("/api/property", verifyToken , ownerVerify ,async (req, res) => {
       const property = req.body;
       const result = await propertyCollection.insertOne(property);
       res.send(result);
@@ -81,7 +118,7 @@ async function run() {
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
-    );
+    );  
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();

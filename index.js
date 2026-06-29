@@ -110,7 +110,7 @@ async function run() {
 
     app.post("/api/property", verifyToken , ownerVerify ,async (req, res) => {
       const property = req.body;
-      const result = await propertyCollection.insertOne(property);
+      const result = await propertyCollection.insertOne({...property, userId: req.user.id});
       res.send(result);
     });
 
